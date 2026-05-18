@@ -204,7 +204,7 @@ llvm/clang:
 ```
 x86_64-w64-mingw32-clang \
   -I/llvm-mingw-20260311-ucrt-macos-universal/generic-w64-mingw32/include -O1 \
-  adv-crypter.c resource.o -o adv-crypter.exe -lbcrypt
+  obsidian.c resource.o -o obsidian.exe -lbcrypt
 ```
 
 ---
