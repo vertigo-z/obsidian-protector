@@ -8,13 +8,13 @@
 </p>
 <p>
   <a href="https://obsidian.st/" target="_blank">
-    <img alt="Static Badge" src="https://img.shields.io/badge/*-obsidian-indigo?labelColor=indigo">
+    <img alt="obsidian badge" src="https://img.shields.io/badge/*-obsidian-indigo?labelColor=indigo">
   </a>
   <a href="https://metrics.torproject.org/rs.html#details/714FCD4134044155A16A4EB440E30EF1F52B19B1" target="_blank">
-    <img alt="Static Badge" src="https://img.shields.io/badge/tor%20native-purple?logo=torproject">
+    <img alt="tor native badge" src="https://img.shields.io/badge/tor%20native-purple?logo=torproject">
   </a>
   <a href="/stub.c">
-    <img alt="Static Badge" src="https://img.shields.io/badge/nostdlib-grey?logo=C">
+    <img alt="nostdlib badge" src="https://img.shields.io/badge/nostdlib-grey?logo=C">
   </a>
 </p>
 <p> 
@@ -211,15 +211,15 @@ x86_64-w64-mingw32-clang \
 
 <p align="center">
   <a href="https://deepwiki.com/vertigo6622/obsidian-protector"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
-  <img alt="Total downloads from the releases of this repo" src="https://img.shields.io/github/downloads/vertigo6622/obsidian-protector/total">
-  <a href="/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-ACSL%201.4-indigo"></a>
+  <img alt="Approximate number of clones" src="https://img.shields.io/badge/clones-1200%2B-green">
+  <a href="/LICENSE"><img alt="License used by repo" src="https://img.shields.io/badge/license-ACSL%201.4-indigo"></a>
   <img alt="Commit activity for this repo" src="https://img.shields.io/github/commit-activity/w/vertigo6622/obsidian-protector">
 </p>
 <p align="center">
-  <img alt="arm64" src="https://img.shields.io/badge/architecture-ARM64-blue">
-  <img alt="Static Badge" src="https://img.shields.io/badge/architecture-AMD64-orange">
+  <img alt="arm64 supported" src="https://img.shields.io/badge/architecture-ARM64-blue">
+  <img alt="amd64 supported" src="https://img.shields.io/badge/architecture-AMD64-orange">
   <a href="https://obsidian.st/donate" target="_blank">
-    <img alt="Static Badge" src="https://img.shields.io/badge/donate-red">
+    <img alt="donation button" src="https://img.shields.io/badge/donate-red">
   </a>
 </p>
 
