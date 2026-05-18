@@ -62,14 +62,15 @@ every pe stub/loader gets burned the moment its source becomes public. the only 
   <img align="center" width="1000" height="100%" src="img/ad.png" alt="obsidian logo">
 </a>
 
-### obsidian pro available now:
+## obsidian pro:
+<a href="https://obsidian.st/"><img alt="Static Badge" src="https://img.shields.io/badge/available%20now-indigo"></a>
 
 obsidian pro is an upgraded version of obsidian community edition with SPECK encryption, aPlib compression, and anti-debugging syscalls. it is licensed using open-source obsidian [keykeeper](https://github.com/vertigo6622/obsidian-keykeeper) which sits behind a clearnet-to-tor proxy, enabling anonymous license management.
 
 **where to find:**
-- **clearnet:** [obsidian.st](https://obsidian.st)
-- **i2p:** [obsidian.i2p](http://obsidian.i2p/?i2paddresshelper=edexepj4bnni4ct5otbivq73tjmyontztz5qa56qrni2rdldh4rq.b32.i2p)
-- **tor:** `obsidiand244wsh2jnmqvnim2becs73dims5wc5hzse3o5ywvw6ryoyd.onion`
+<p> 
+  <a href="https://obsidian.st" target="_blank">clearnet</a> • <a href="http://obsidiand244wsh2jnmqvnim2becs73dims5wc5hzse3o5ywvw6ryoyd.onion/" target="_blank">tor</a> • <a href="http://obsidian.i2p/?i2paddresshelper=edexepj4bnni4ct5otbivq73tjmyontztz5qa56qrni2rdldh4rq.b32.i2p" target="_blank">i2p</a>
+</p>
 
 **pro edition features:**
 
