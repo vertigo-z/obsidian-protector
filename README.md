@@ -211,7 +211,7 @@ x86_64-w64-mingw32-clang \
 <p align="center">
   <a href="https://deepwiki.com/vertigo6622/obsidian-protector"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   <img alt="Total downloads from the releases of this repo" src="https://img.shields.io/github/downloads/vertigo6622/obsidian-protector/total">
-  <a href="/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-ASCL%201.4-indigo"></a>
+  <a href="/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-ACSL%201.4-indigo"></a>
   <img alt="Commit activity for this repo" src="https://img.shields.io/github/commit-activity/w/vertigo6622/obsidian-protector">
 </p>
 <p align="center">
