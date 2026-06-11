@@ -107,18 +107,7 @@ void resolve_imports(STUB_RUNTIME* rt) {
     void* k32 = NULL;
     
     for (int i = 0; i < 10; i++) {
-        current = *(void**)current;
-        if (current == list_head) break;
-        void* base = *(void**)((uint8_t*)current + 0x20);
-        if (!base) continue;
-        wchar_t* n = *(wchar_t**)((uint8_t*)current + 0x50);
-        uint16_t l = *(uint16_t*)((uint8_t*)current + 0x48) / 2;
-        char name[64];
-        int j;
-        for (j = 0; j < l && j < 63; j++) name[j] = (char)n[j];
-        name[j] = 0;
-        uint32_t h = crc32_hash_str(name);
-        if (h == 0xB37B13DA) { k32 = base; break; }
+        /* walk the PEB and find our dlls */
     }
 
     IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)k32;
@@ -130,17 +119,7 @@ void resolve_imports(STUB_RUNTIME* rt) {
     uint16_t* ordinals = (uint16_t*)(k32 + exports->AddressOfNameOrdinals);
     uint32_t* functions = (uint32_t*)(k32 + exports->AddressOfFunctions);
     
-    for (uint32_t j = 0; j < exports->NumberOfNames; j++) {
-        char* ename = (char*)(k32 + names[j]);
-        uint32_t h = crc32_hash_str(ename);
-        if (h == 0xDAEC3C14)      rt->pVirtualAlloc = (fn_VirtualAlloc)(k32 + functions[ordinals[j]]);
-        else if (h == 0x796AECA9) rt->pVirtualProtect = (fn_VirtualProtect)(k32 + functions[ordinals[j]]);
-        else if (h == 0x26F919CC) rt->pVirtualFree = (fn_VirtualFree)(k32 + functions[ordinals[j]]);
-        else if (h == 0x35228EDA) rt->pOutputDebugStringA = (fn_OutputDebugStringA)(k32 + functions[ordinals[j]]);
-        else if (h == 0x41D65003) rt->pGetModuleHandleA = (fn_GetModuleHandleA)(k32 + functions[ordinals[j]]);
-        else if (h == 0x794CF7AA) rt->pGetProcAddress = (fn_GetProcAddress)(k32 + functions[ordinals[j]]);
-        else if (h == 0x839EC179) rt->pLoadLibraryA = (fn_LoadLibraryA)(k32 + functions[ordinals[j]]);
-    }
+    /* walk the dll export table and find your imports */
 }
 
 void resolve_payload_imports(uint8_t* target_base, STUB_CONFIG* config, STUB_RUNTIME* rt) {
