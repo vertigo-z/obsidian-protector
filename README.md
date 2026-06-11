@@ -162,7 +162,10 @@ llvm/clang:
 * llvm 22 toolchain
 * mingw64 tool suite
 
-### commands:
+**arm64 requirements:**
+* arm64 llvm/mingw64 toolchain (included in some bundles)
+
+### amd64 commands:
 
 **step 1: build stub object file**
 
@@ -207,13 +210,48 @@ x86_64-w64-mingw32-clang \
   obsidian.c resource.o -o obsidian.exe -lbcrypt
 ```
 
+### arm64 commands:
+
+**step 1: build stub object file**
+
+```
+/llvm/llvm-mingw-20260311-ucrt-macos-universal/bin/aarch64-w64-mingw32-clang \
+  -fno-asynchronous-unwind-tables -fno-ident -fno-stack-protector -O1 \
+  -c stub-arm64.c -o stub-arm64.o
+```
+
+**step 2: link and strip stub binary**
+
+```
+.\ld.lld.exe stub.o -o stub.exe --build-id=none -s --entry=_start
+```
+```
+.\objcopy.exe -O binary stub.exe stub.bin
+```
+```
+.\windres.exe resource.rc -o resource.o
+```
+**note:** resource file step must happen after both arm64 and amd64 stubs are in .bin format
+
+**step 3: build obsidian ce**
+
+gcc:
+```
+.\gcc.exe obsidian.c resource.o -o obsidian.exe -lbcrypt
+```
+
+llvm/clang:
+```
+x86_64-w64-mingw32-clang \
+  -I/llvm-mingw-20260311-ucrt-macos-universal/generic-w64-mingw32/include -O1 \
+  obsidian.c resource.o -o obsidian.exe -lbcrypt
+```
 ---
 
 <p align="center">
   <a href="https://deepwiki.com/vertigo6622/obsidian-protector"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   <a href="/LICENSE"><img alt="License used by repo" src="https://img.shields.io/badge/license-ACSL%201.4-indigo"></a>
   <img alt="Approximate number of clones" src="https://img.shields.io/badge/clones-1300%2B-orange">
-  <img alt="Commit activity for this repo" src="https://img.shields.io/github/commit-activity/w/vertigo6622/obsidian-protector">
 </p>
 <p align="center">
   <img alt="arm64 supported" src="https://img.shields.io/badge/architecture-ARM64-blue">
