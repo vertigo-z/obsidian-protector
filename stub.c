@@ -407,7 +407,7 @@ void stub_main(STUB_CONFIG* config) {
     DWORD old_prot; 
     size_t config_zone = sizeof(STUB_CONFIG) + 4 + 
                         (sizeof(SECTION_INFO) * config->section_count);
-    rt.protect(config, config_zone , PAGE_READWRITE, &old_prot);
+    rt.pVirtualProtect(config, config_zone , PAGE_READWRITE, &old_prot);
     overwrite((unsigned char*)config, config_zone);
 
     original_entry();
