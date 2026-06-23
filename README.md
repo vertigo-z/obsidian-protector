@@ -27,11 +27,9 @@
 
 obsidian is a custom universal pe packer / executable protector written in C. it is designed to be paired with a loader stub that decrypts and executes the packed payload. 
 
-a compiled stub example is available in the stubs folder that uses rolling xor obfuscation with shifts and does not contain any anti-debugging mechanisms.
+the stub included uses rolling xor obfuscation with shifts and does not contain any anti-debugging mechanisms. this packer/stub has been tested to work on putty.exe, strings.exe, and can even pack itself, and then pack other executables from the packed state.
 
-this packer/stub has been tested to work on putty.exe, strings.exe, and can even pack itself, and then pack other executables from the packed state.
-
-every pe stub/loader gets burned the moment its source becomes public. the only way to stay ahead of this is to write your own custom one. there is an included a template for you to fill out with your own code. 
+full source for both arm64 and amd64 stubs are included in this repo. feel free to modify it to suit your needs or to evade detection. 
 
 ---
 
