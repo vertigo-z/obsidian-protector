@@ -69,6 +69,7 @@ once complete, copy contents of `obsidian-pyinstaller/pyinstaller/bootloader/Win
 ```
 .\obsidian.ce.universal.exe --pyinstaller script.py obfuscated-py.exe
 ```
+you can also use pyinstaller first (potentially with a specfile) using the modified bootloader and then pack the output like a normal exe.
 
 ---
 
