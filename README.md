@@ -25,7 +25,7 @@
 
 ## introduction:
 
-obsidian is a custom universal pe packer / executable protector written in C. it is designed to be paired with a loader stub that decrypts and executes the packed payload. obsidian ce (community edition) supports ARM64 natively with a specialized stub. we also recently added support for pyinstalled exectuables with a special fork of the pyinstaller bootloader found [here](https://github.com/vertigo-z/obsidian-pyinstaller).
+obsidian is a custom universal pe packer / executable protector written in C. it is designed to be paired with a loader stub that decrypts and executes the packed payload. obsidian ce (community edition) supports ARM64 natively with a specialized stub. we also recently added support for pyinstalled exectuables with a special fork of the pyinstaller bootloader.
 
 the stub included uses rolling xor obfuscation with shifts and does not contain any anti-debugging mechanisms. this packer/stub has been tested to work on putty.exe, strings.exe, and can even pack itself, and then pack other executables from the packed state. when the `--pyinstaller` flag is used and a `.py` file is targeted, obsidian uses pyinstaller to build an exe and then immediately obfuscates and outputs the file.
 
@@ -39,7 +39,7 @@ full source for both arm64 and amd64 stubs are included in this repo. feel free 
 
 ## features:
 
-**community edition-v1.3:**
+**community edition-v1.4:**
 * pyinstalled executables now supported
 * ARM64 fully supported
 * improved xor algorithm
