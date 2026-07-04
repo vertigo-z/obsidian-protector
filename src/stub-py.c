@@ -56,9 +56,6 @@ typedef struct _STUB_RUNTIME {
     fn_GetModuleHandleA pGetModuleHandleA;
 } STUB_RUNTIME;
 
-void debug_print(STUB_RUNTIME* rt, const char* msg);
-void debug_print_hex(STUB_RUNTIME* rt, const char* name, uint64_t value);
-void debug_print_dec(STUB_RUNTIME* rt, const char* name, uint64_t value);
 void xorshift64_plus(uint8_t* data, size_t size, uint64_t key);
 void position_independent_entry(void);
 
@@ -117,32 +114,16 @@ void resolve_imports(STUB_RUNTIME* rt) {
     uint16_t* ordinals = (uint16_t*)(k32 + exports->AddressOfNameOrdinals);
     uint32_t* functions = (uint32_t*)(k32 + exports->AddressOfFunctions);
 
-    const char* req_funcs[] = {
-        "VirtualAlloc", "VirtualProtect", "VirtualFree",
-        "OutputDebugStringA", "GetProcAddress",
-        "LoadLibraryA", "GetModuleHandleA"
-    };
-
-    void** ptrs[] = {
-	    (void**)&rt->pVirtualAlloc, (void**)&rt->pVirtualProtect, (void**)&rt->pVirtualFree,
-	    (void**)&rt->pOutputDebugStringA, (void**)&rt->pGetProcAddress,
-	    (void**)&rt->pLoadLibraryA, (void**)&rt->pGetModuleHandleA
-    };
-
-    for (int i = 0; i < 7; i++) {
-        for (uint32_t j = 0; j < exports->NumberOfNames; j++) {
-            char* name = (char*)(k32 + names[j]);
-            const char* target = req_funcs[i];
-            int match = 1;
-            for (int k = 0; target[k] != 0; k++) {
-                if (name[k] != target[k]) { match = 0; break; }
-            }
-            if (match) {
-                uint16_t ordinal = ordinals[j];
-                *ptrs[i] = (void*)(k32 + functions[ordinal]);
-                break;
-            }
-        }
+    for (uint32_t j = 0; j < exports->NumberOfNames; j++) {
+        char* ename = (char*)(k32 + names[j]);
+        uint32_t h = crc32_hash_str(ename);
+        if (h == 0xDAEC3C14)      rt->pVirtualAlloc = (fn_VirtualAlloc)(k32 + functions[ordinals[j]]);
+        else if (h == 0x796AECA9) rt->pVirtualProtect = (fn_VirtualProtect)(k32 + functions[ordinals[j]]);
+        else if (h == 0x26F919CC) rt->pVirtualFree = (fn_VirtualFree)(k32 + functions[ordinals[j]]);
+        else if (h == 0x35228EDA) rt->pOutputDebugStringA = (fn_OutputDebugStringA)(k32 + functions[ordinals[j]]);
+        else if (h == 0x41D65003) rt->pGetModuleHandleA = (fn_GetModuleHandleA)(k32 + functions[ordinals[j]]);
+        else if (h == 0x794CF7AA) rt->pGetProcAddress = (fn_GetProcAddress)(k32 + functions[ordinals[j]]);
+        else if (h == 0x839EC179) rt->pLoadLibraryA = (fn_LoadLibraryA)(k32 + functions[ordinals[j]]);
     }
 }
 
@@ -178,16 +159,9 @@ void resolve_payload_imports(uint8_t* target_base, STUB_CONFIG* config, STUB_RUN
 }
 
 void apply_relocations(STUB_RUNTIME* rt, uint8_t* current_base, uint8_t* original_image_base, IMAGE_DATA_DIRECTORY* reloc_dir, size_t image_size) {
-    if (reloc_dir->VirtualAddress == 0 || reloc_dir->Size == 0) {
-        return;
-    }
+    if (reloc_dir->VirtualAddress == 0 || reloc_dir->Size == 0) return;
     int64_t delta = (int64_t)current_base - (int64_t)original_image_base;
-    #ifdef DEBUG 
-        debug_print_hex(rt, "Reloc Delta", delta); 
-    #endif
-    if (delta == 0) {
-        return;
-    }
+    if (delta == 0) return;
     IMAGE_BASE_RELOCATION* reloc = (IMAGE_BASE_RELOCATION*)(current_base + reloc_dir->VirtualAddress);
     IMAGE_BASE_RELOCATION* reloc_end = (IMAGE_BASE_RELOCATION*)((uint8_t*)reloc + reloc_dir->Size);
     while (reloc < reloc_end && reloc->VirtualAddress != 0 && reloc->SizeOfBlock != 0) {        
@@ -197,25 +171,15 @@ void apply_relocations(STUB_RUNTIME* rt, uint8_t* current_base, uint8_t* origina
         uint8_t* page_rva = current_base + reloc->VirtualAddress;
         uint32_t num_entries = (reloc->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(uint16_t);
         uint16_t* entry = (uint16_t*)((uint8_t*)reloc + sizeof(IMAGE_BASE_RELOCATION));
-        #ifdef DEBUG
-            int relocs_processed = 0;
-        #endif
         for (uint32_t i = 0; i < num_entries; i++) {
             uint16_t type = entry[i] >> 12;      
             uint16_t offset = entry[i] & 0x0FFF; 
-
             if (type == IMAGE_REL_BASED_DIR64) {
                 if (reloc->VirtualAddress + offset + 8 > image_size) continue;
                 uint64_t* target_ptr = (uint64_t*)(page_rva + offset);
                 *target_ptr += delta;
-                #ifdef DEBUG
-                    relocs_processed += 1;
-                #endif
             } 
         }
-        #ifdef DEBUG
-            debug_print_dec(rt, "Number of relocs processed", relocs_processed);
-        #endif
         reloc = (IMAGE_BASE_RELOCATION*)((uint8_t*)reloc + reloc->SizeOfBlock);
     }
 }
@@ -269,52 +233,25 @@ void restore_directories_and_relocate(STUB_RUNTIME* rt, STUB_CONFIG* config, IMA
     if (config->resource_rva != 0 || config->exception_rva != 0 || config->tls_rva != 0 || config->reloc_rva != 0) {
         DWORD old_header_prot;
         rt->pVirtualProtect(target_base, 0x1000, PAGE_READWRITE, &old_header_prot);
-        #ifdef DEBUG
-            debug_print(rt, "Made headers writable");
-        #endif
         if (config->resource_rva != 0) {
             nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE].VirtualAddress = config->resource_rva;
             nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_RESOURCE].Size = config->resource_size;
-            #ifdef DEBUG
-                debug_print(rt, "Restored resource directory");
-            #endif
         } 
         if (config->exception_rva != 0) {
             nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXCEPTION].VirtualAddress = config->exception_rva;
             nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXCEPTION].Size = config->exception_size;
-            #ifdef DEBUG
-                debug_print(rt, "Restored exception directory");
-            #endif
         }
         if (config->tls_rva != 0) {
             nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].VirtualAddress = config->tls_rva;
             nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS].Size = config->tls_size;
-            #ifdef DEBUG
-                debug_print(rt, "Restored TLS directory");
-            #endif
         }
         if (config->reloc_rva != 0) {
             nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress = config->reloc_rva;
             nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size = config->reloc_size;
-            #ifdef DEBUG
-                debug_print(rt, "Restored reloc directory");
-            #endif
-            #ifdef DEBUG
-                debug_print(rt, "Applying relocations");
-            #endif
             apply_relocations(rt, target_base, (uint8_t*)(uintptr_t)config->image_base, &nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC], nt->OptionalHeader.SizeOfImage);
-            #ifdef DEBUG
-                debug_print(rt, "Relocations applied");
-            #endif
             manual_relocations(target_base, (uint8_t*)(uintptr_t)config->image_base, nt->OptionalHeader.SizeOfImage);
-            #ifdef DEBUG
-                debug_print(rt, "Additional relocations applied");
-            #endif
         }
         rt->pVirtualProtect(target_base, 0x1000, old_header_prot, &old_header_prot);
-        #ifdef DEBUG
-            debug_print(rt, "Restored headers to read-only");
-        #endif
     }
 }
 
@@ -338,55 +275,6 @@ void* memcpy(void* dest, const void* src, size_t n) {
     const uint8_t* s = (const uint8_t*)src;
     while (n--) *d++ = *s++;
     return dest;
-}
-
-void debug_print(STUB_RUNTIME* rt, const char* msg) {
-    if (rt->pOutputDebugStringA) {
-        rt->pOutputDebugStringA(msg);
-    }
-}
-
-void debug_print_hex(STUB_RUNTIME* rt, const char* name, uint64_t value) {
-    char buffer[128];
-    char* p = buffer;
-    while (*name) *p++ = *name++;
-    *p++ = ':';
-    *p++ = ' ';
-    *p++ = '0';
-    *p++ = 'x';
-    char hex[] = "0123456789ABCDEF";
-    int started = 0;
-    for (int i = 60; i >= 0; i -= 4) {
-        int digit = (int)((value >> i) & 0xF);
-        if (digit != 0) started = 1;
-        if (started || i == 0) {
-            *p++ = hex[digit];
-        }
-    }
-    *p = 0;
-    debug_print(rt, buffer);
-}
-
-void debug_print_dec(STUB_RUNTIME* rt, const char* name, uint64_t value) {
-    char buffer[128];
-    char* p = buffer;
-    while (*name) *p++ = *name++;
-    *p++ = ':';
-    *p++ = ' ';
-    if (value == 0) {
-        *p++ = '0';
-    } else {
-        char numbuf[21];
-        char* np = numbuf + 20;
-        *np = 0;
-        while (value > 0) {
-            *--np = '0' + (value % 10);
-            value /= 10;
-        }
-        while (*np) *p++ = *np++;
-    }
-    *p = 0;
-    debug_print(rt, buffer);
 }
 
 void xorshift64_plus(uint8_t* data, size_t size, uint64_t key) {
@@ -418,32 +306,8 @@ void stub_main(STUB_CONFIG* config) {
     STUB_RUNTIME rt;
     resolve_imports(&rt);
 
-    if (rt.pVirtualProtect) {
-        uint8_t* stub_region = (uint8_t*)((uintptr_t)config - (uintptr_t)config->stub_code_size);
-        size_t stub_total = (size_t)config->stub_code_size + sizeof(STUB_CONFIG) + 4;
-        DWORD old_stub_region_prot;
-        rt.pVirtualProtect(stub_region, stub_total, PAGE_EXECUTE_READWRITE, &old_stub_region_prot);
-    }
-    
-    #ifdef DEBUG
-        debug_print(&rt, "Stub main starting");
-        debug_print_hex(&rt, "Decryption key", config->key);
-        debug_print_dec(&rt, "Original OEP", config->original_oep);
-        debug_print_dec(&rt, "Encrypted size", config->encrypted_size);
-        debug_print_dec(&rt, "Image base", config->image_base);
-        debug_print_dec(&rt, "Sections RVA", config->sections_rva);
-    #endif
-
     void* buffer = rt.pVirtualAlloc(NULL, config->encrypted_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!buffer) {
-        #ifdef DEBUG
-            debug_print(&rt, "VirtualAlloc failed");
-        #endif
-        return;
-    }
-    #ifdef DEBUG
-        debug_print_hex(&rt, "Allocated buffer", (uint64_t)buffer);
-    #endif
+    if (!buffer) return;
 
     void* peb = (void*)__readgsqword(0x60);
     uint8_t* actual_base = *(uint8_t**)((uint8_t*)peb + 0x10);
@@ -458,14 +322,7 @@ void stub_main(STUB_CONFIG* config) {
         uint8_t* dst = decrypted + section_infos[i].raw_offset;
         memcpy(dst, src, section_infos[i].raw_size);
     }
-    #ifdef DEBUG
-        debug_print(&rt, "Starting decryption");
-    #endif
     xorshift64_plus(decrypted, config->encrypted_size, config->key);
-    #ifdef DEBUG
-        debug_print(&rt, "Decryption complete");
-    #endif
-
 
     uint8_t* target_base = actual_base;
     uint8_t* target_sections = actual_base + config->sections_rva;
@@ -480,13 +337,7 @@ void stub_main(STUB_CONFIG* config) {
     }
 
     SecureWipe((unsigned char*)buffer, config->encrypted_size);
-    #ifdef DEBUG
-        debug_print(&rt, "Overwrote temporary buffer with zeros");
-    #endif
     rt.pVirtualFree(buffer, 0, MEM_RELEASE);
-    #ifdef DEBUG
-        debug_print(&rt, "Released temporary buffer");
-    #endif
 
     IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)target_base;
     IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(target_base + dos->e_lfanew);
@@ -495,28 +346,17 @@ void stub_main(STUB_CONFIG* config) {
     for (uint16_t i = 0; i < nt->FileHeader.NumberOfSections; i++) {
         if (sec[i].SizeOfRawData == 0 && sec[i].Misc.VirtualSize > 0) {
             uint8_t* bss = target_base + sec[i].VirtualAddress;
-            #ifdef DEBUG
-                debug_print(&rt, "Zeroing BSS section");
-            #endif
             SecureWipe(bss, sec[i].Misc.VirtualSize);
         } else if (sec[i].SizeOfRawData > 0 && sec[i].Misc.VirtualSize > sec[i].SizeOfRawData) {
             uint32_t extra_offset = sec[i].VirtualAddress + sec[i].SizeOfRawData;
             uint32_t extra_size = sec[i].Misc.VirtualSize - sec[i].SizeOfRawData;
             uint8_t* extra = target_base + extra_offset;
-            #ifdef DEBUG
-                debug_print(&rt, "Zeroing extra section data");
-            #endif
             SecureWipe(extra, extra_size);
         }
     }
 
     restore_directories_and_relocate(&rt, config, nt, target_base);
-
-    #ifdef DEBUG
-        debug_print(&rt, "Resolving payload imports");
-    #endif
     resolve_payload_imports(target_base, config, &rt);
-
     apply_section_permissions(&rt, target_base, nt, sec);
 
     void (*original_entry)() = (void(*)())(target_base + config->original_oep);
@@ -525,13 +365,6 @@ void stub_main(STUB_CONFIG* config) {
     rt.pVirtualProtect(config, sizeof(STUB_CONFIG), PAGE_READWRITE, &old_stub_prot);
     SecureWipe((unsigned char*)config, sizeof(STUB_CONFIG));
     rt.pVirtualProtect(config, sizeof(STUB_CONFIG), old_stub_prot, &old_stub_prot);
-    #ifdef DEBUG
-        debug_print(&rt, "Wiped payload config");
-    #endif
-
-    #ifdef DEBUG
-        debug_print_hex(&rt, "Jumping to original entry point", (uint64_t)original_entry);
-    #endif
     original_entry();
 }
 
@@ -557,14 +390,12 @@ void position_independent_entry(void) {
 
 __attribute__((naked)) int _start() {
     __asm__ volatile (
-        ".intel_syntax noprefix\n"
         ".byte 0x0F, 0x0B, 0x0F, 0x0B, 0x0F, 0x0B\n"
         "and rsp, 0xFFFFFFFFFFFFFFF0\n"
         "sub rsp, 0x20\n"               
         "call position_independent_entry\n"
         "add rsp, 0x20\n"
         "ret\n"
-        ".att_syntax prefix\n"
     );
 }
 
