@@ -25,9 +25,9 @@
 
 ## introduction:
 
-obsidian is a custom universal pe packer / executable protector written in C. it is designed to be paired with a loader stub that decrypts and executes the packed payload. 
+obsidian is a custom universal pe packer / executable protector written in C. it is designed to be paired with a loader stub that decrypts and executes the packed payload. obsidian ce (community edition) supports ARM64 natively with a specialized stub. we also recently added support for pyinstalled exectuables with a special fork of the pyinstaller bootloader found [here](https://github.com/vertigo-z/obsidian-pyinstaller).
 
-the stub included uses rolling xor obfuscation with shifts and does not contain any anti-debugging mechanisms. this packer/stub has been tested to work on putty.exe, strings.exe, and can even pack itself, and then pack other executables from the packed state.
+the stub included uses rolling xor obfuscation with shifts and does not contain any anti-debugging mechanisms. this packer/stub has been tested to work on putty.exe, strings.exe, and can even pack itself, and then pack other executables from the packed state. when the `--pyinstaller` flag is used and a `.py` file is targeted, obsidian uses pyinstaller to build an exe and then immediately obfuscates and outputs the file.
 
 full source for both arm64 and amd64 stubs are included in this repo. feel free to modify it to suit your needs or to evade detection. 
 
@@ -40,7 +40,8 @@ full source for both arm64 and amd64 stubs are included in this repo. feel free 
 ## features:
 
 **community edition-v1.3:**
-* ARM64 support now added
+* pyinstalled executables now supported
+* ARM64 fully supported
 * improved xor algorithm
 * hash-based import lookups
 * compiled xorshift64+ stub (stubs/stub.bin)
@@ -53,6 +54,21 @@ full source for both arm64 and amd64 stubs are included in this repo. feel free 
 * checksum recalculation
 * pe section manipulation
 * progress bar and colors
+
+## packing with pyinstaller:
+in order to obfuscate a python script with obsidian, you first need to make sure you have installed pyinstaller via pip. then clone and compile the forked `obsidian-pyinstaller` repo found [here](https://github.com/vertigo-z/obsidian-pyinstaller). here are the steps on Windows:
+
+1. install the offical MSYS2 UCRT64 package from `https://www.msys2.org/`
+2. open the terminal, then run `pacman -Syu && pacman -S --needed mingw-w64-ucrt-x86_64-gcc`
+3. use the same MSYS2 terminal to open `cmd.exe` then navigate to `obsidian-pyinstaller` cloned folder
+4. compile the forked pyinstaller package with `python waf all`
+
+once complete, copy contents of `obsidian-pyinstaller/pyinstaller/bootloader/Windows-64bit-intel` directory to the system installation of pyinstallers bootloader (usually found in the `site-packages/PyInstaller/bootloader` folder of you python installation). it is recommended to backup the old bootloader before doing this step otherwise you will have to reinstall pyinstaller to use it without packing.
+
+5. run obsidian with the `--pyinstaller` flag: 
+```
+.\obsidian.ce.universal.exe --pyinstaller script.py obfuscated-py.exe
+```
 
 ---
 
@@ -85,7 +101,6 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 ## to-do:
 
 **community and pro edition:**
-* pyinstaller support
 * remain updated to keep ahead of av detection
 
 **commercial edition(future):**
