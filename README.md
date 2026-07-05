@@ -63,9 +63,9 @@ in order to obfuscate a python script with obsidian, you first need to make sure
 3. use the same MSYS2 terminal to open `cmd.exe` then navigate to `obsidian-pyinstaller` cloned folder
 4. compile the forked pyinstaller package with `python waf all`
 
-once complete, copy contents of `obsidian-pyinstaller/pyinstaller/bootloader/Windows-64bit-intel` directory to the system installation of pyinstallers bootloader (usually found in the `site-packages/PyInstaller/bootloader` folder of you python installation). it is recommended to backup the old bootloader before doing this step otherwise you will have to reinstall pyinstaller to use it without packing.
+once complete, copy contents of `obsidian-pyinstaller/pyinstaller/bootloader/Windows-64bit-intel` directory to the system installation of pyinstallers bootloader (usually found in the `site-packages/PyInstaller/bootloader` folder of you python installation). it is recommended to backup the old bootloader before doing this step otherwise you will have to reinstall pyinstaller to use it without packing. 
 
-5. run obsidian with the `--pyinstaller` flag: 
+5. run obsidian with the `--pyinstaller` flag from the `obsidian-pyinstaller` working directory: 
 ```
 .\obsidian.ce.universal.exe --pyinstaller script.py obfuscated-py.exe
 ```
