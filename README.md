@@ -100,7 +100,12 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 
 ## to-do:
 
-**community and pro edition:**
+**community edition:**
+* qol (quality of life) improvements for pyinstaller
+  * spec-file handling
+  * arm64 code path
+  * patch already built pyinstaller bundles
+  * modified bootloaders as resources 
 * remain updated to keep ahead of av detection
 
 **commercial edition(future):**
