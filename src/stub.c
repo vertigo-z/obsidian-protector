@@ -418,7 +418,7 @@ void stub_main(STUB_CONFIG* config) {
 
 static volatile uint32_t MARKER_VALUE = 0xDEADBEEF;
 
-__attribute__((noinline))
+__attribute__((noinline, optnone))
 void position_independent_entry(void) {
     void* return_addr = __builtin_return_address(0);
     uint8_t* marker_location = (uint8_t*)return_addr;
@@ -439,7 +439,7 @@ void position_independent_entry(void) {
 __attribute__((naked)) int _start() {
     __asm__ volatile (
         ".intel_syntax noprefix\n"
-        ".byte 0x0F, 0x0B, 0x0F, 0x0B, 0x0F, 0x0B\n"
+        ".byte 0xAA, 0xBB, 0xCC, 0xDD\n"
         "and rsp, 0xFFFFFFFFFFFFFFF0\n"
         "sub rsp, 0x20\n"               
         "call position_independent_entry\n"

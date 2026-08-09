@@ -448,7 +448,7 @@ void position_independent_entry(void) {
 
 __attribute__((naked)) int _start() {
     __asm__ volatile (
-        ".byte 0xBB, 0xCC, 0xAA, 0xDD\n\t"
+        ".byte 0xAA, 0xBB, 0xCC, 0xDD\n\t"
         "mov x29, sp\n\t"
         "mov x9, sp\n\t"
         "and x9, x9, #0xfffffffffffffff0\n\t"

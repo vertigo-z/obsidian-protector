@@ -62,11 +62,16 @@ typedef unsigned char BYTE;
 
 #define STUB_RES_AMD64 100
 #define STUB_RES_ARM64 101
-#define STUB_RES_PYTHON 102
+
+#define BOOT_RES_RUN   198
+#define BOOT_RES_RUN_D 199
+#define BOOT_RES_RUNW  196
+#define BOOT_RES_RUNW_D 197
 
 static int g_debug = 0;
 static uint16_t g_target_machine = 0;
 static int g_pyinstaller_build = 0;
+static int g_use_spec = 0;
 
 #pragma pack(push, 1)
 typedef struct _WWN_PYI_FOOTER {
@@ -818,27 +823,19 @@ int pack_pe(uint8_t** pe_data, size_t* pe_size, uint8_t* stub, size_t stub_size)
     
     DBG("=== STEP 8: Locating entry point signature ===");
     uint32_t entry_offset = 0;
-    uint8_t sig_amd64[] = { 0x0F, 0x0B, 0x0F, 0x0B, 0x0F, 0x0B };
-    uint8_t sig_arm64[] = { 0xBB, 0xCC, 0xAA, 0xDD };
-    uint8_t* sig;
-    size_t sig_len;
+    uint8_t sig[] = { 0xAA, 0xBB, 0xCC, 0xDD };
+    size_t sig_len = sizeof(sig);
 
-    if (g_target_machine == IMAGE_FILE_MACHINE_ARM64) {
-        sig = sig_arm64;
-        sig_len = sizeof(sig_arm64);
-        DBG("Using ARM64 entry signature (BRK #0)");
-    } else {
-        sig = sig_amd64;
-        sig_len = sizeof(sig_amd64);
-        DBG("Using AMD64 entry signature (UD2 UD2)");
-    }
+    uint32_t entry_marker;
+    BCryptGenRandom(NULL, (PUCHAR)&entry_marker, sizeof(uint32_t), BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 
     int found = 0;
-    for (size_t i = 0; i < stub_size - sig_len; i++) {
+    for (size_t i = 0; i < stub_size - 4; i++) {
         if (memcmp(stub_location + i, sig, sig_len) == 0) {
-            entry_offset = (uint32_t)i + (uint32_t)sig_len;
+            entry_offset = (uint32_t)i + 4;
             found = 1;
-            DBG("Found entry signature at stub offset 0x%X", entry_offset);
+            memcpy((uint8_t*)stub + i, &entry_marker, 4);
+            DBG("Found and overwrote entry signature at stub offset 0x%X", entry_offset);
             break;
         }
     }
@@ -1005,72 +1002,241 @@ int has_ext_ci(const char* path, const char* ext) {
     return 1;
 }
 
-int build_with_local_pyinstaller(const char* script, char* built_exe, size_t built_exe_size) {
+int write_resource_to_file(DWORD res_id, const char* out_path) {
+    HRSRC hRes = FindResource(NULL, MAKEINTRESOURCE(res_id), RT_RCDATA);
+    if (!hRes) {
+        ERR("Failed to find resource %u", res_id);
+        return 0;
+    }
+    HGLOBAL hData = LoadResource(NULL, hRes);
+    if (!hData) {
+        ERR("Failed to load resource %u", res_id);
+        return 0;
+    }
+    DWORD size = SizeofResource(NULL, hRes);
+    uint8_t* data = (uint8_t*)LockResource(hData);
+    if (!data || !size) {
+        ERR("Failed to lock resource %u", res_id);
+        return 0;
+    }
+    FILE* f = fopen(out_path, "wb");
+    if (!f) {
+        ERR("Failed to write %s", out_path);
+        return 0;
+    }
+    if (fwrite(data, 1, size, f) != size) {
+        ERR("Short write to %s", out_path);
+        fclose(f);
+        return 0;
+    }
+    fclose(f);
+    return 1;
+}
+
+int get_system_pyinstaller_bootloader_dir(char* out, size_t out_size) {
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd),
+             "python -c \"import PyInstaller,os;print(os.path.join(os.path.dirname(PyInstaller.__file__),'bootloader','Windows-64bit-intel'))\"");
+
+    FILE* pipe = _popen(cmd, "r");
+    if (!pipe) {
+        ERR("Failed to run python to locate PyInstaller bootloader dir");
+        return 0;
+    }
+    if (!fgets(out, (int)out_size, pipe)) {
+        _pclose(pipe);
+        ERR("No output from python bootloader dir query");
+        return 0;
+    }
+    _pclose(pipe);
+
+    size_t len = strlen(out);
+    while (len > 0 && (out[len - 1] == '\n' || out[len - 1] == '\r' ||
+                       out[len - 1] == ' '  || out[len - 1] == '\t')) {
+        out[--len] = 0;
+    }
+    if (len == 0) {
+        ERR("Empty PyInstaller bootloader directory path");
+        return 0;
+    }
+    return 1;
+}
+
+#define MAX_BOOTLOADERS 4
+
+struct bootloader_entry {
+    const char* name;
+    DWORD res_id;
+};
+
+int swap_bootloaders(const char* boot_dir, struct bootloader_entry* bootloaders, int count) {
+    char src[512];
+    char bak[512];
+
+    for (int i = 0; i < count; i++) {
+        snprintf(src, sizeof(src), "%s\\%s", boot_dir, bootloaders[i].name);
+        snprintf(bak, sizeof(bak), "%s\\%s.bak", boot_dir, bootloaders[i].name);
+
+        if (file_exists(bak)) {
+            ERR("Stale .bak already exists for %s — refusing to proceed", bootloaders[i].name);
+            ERR("Manually restore %s from %s and delete the .bak", src, bak);
+            return 0;
+        }
+        if (!file_exists(src)) {
+            ERR("System bootloader not found: %s", src);
+            return 0;
+        }
+        if (rename(src, bak) != 0) {
+            ERR("Failed to backup %s -> %s", src, bak);
+            return 0;
+        }
+        DBG("Backed up %s", bootloaders[i].name);
+
+        if (!write_resource_to_file(bootloaders[i].res_id, src)) {
+            ERR("Failed to extract modified bootloader %s", bootloaders[i].name);
+            return 0;
+        }
+        DBG("Wrote modified %s from resource %u", bootloaders[i].name, bootloaders[i].res_id);
+    }
+    return 1;
+}
+
+int restore_bootloaders(const char* boot_dir, struct bootloader_entry* bootloaders, int count) {
+    char src[512];
+    char bak[512];
+    int ok = 1;
+
+    for (int i = 0; i < count; i++) {
+        snprintf(src, sizeof(src), "%s\\%s", boot_dir, bootloaders[i].name);
+        snprintf(bak, sizeof(bak), "%s\\%s.bak", boot_dir, bootloaders[i].name);
+
+        if (!file_exists(bak)) {
+            continue;
+        }
+        if (file_exists(src)) {
+            if (remove(src) != 0) {
+                WARN("Failed to delete modified %s", bootloaders[i].name);
+                ok = 0;
+                continue;
+            }
+        }
+        if (rename(bak, src) != 0) {
+            ERR("Failed to restore %s from .bak", bootloaders[i].name);
+            ok = 0;
+        } else {
+            DBG("Restored %s", bootloaders[i].name);
+        }
+    }
+    return ok;
+}
+
+int find_newest_exe_in_dir(const char* dir, char* out, size_t out_size) {
+    WIN32_FIND_DATAA fd;
+    char pattern[512];
+    HANDLE hFind;
+    FILETIME newest_ft = {0, 0};
+    int found = 0;
+
+    snprintf(pattern, sizeof(pattern), "%s\\*.exe", dir);
+    hFind = FindFirstFileA(pattern, &fd);
+    if (hFind == INVALID_HANDLE_VALUE) return 0;
+
+    do {
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        if (!found || CompareFileTime(&fd.ftLastWriteTime, &newest_ft) > 0) {
+            newest_ft = fd.ftLastWriteTime;
+            snprintf(out, out_size, "%s\\%s", dir, fd.cFileName);
+            found = 1;
+        }
+    } while (FindNextFileA(hFind, &fd));
+
+    FindClose(hFind);
+    return found;
+}
+
+int build_with_system_pyinstaller(const char* input, char* built_exe, size_t built_exe_size) {
     char stem[260];
     char command[4096];
-    char exe_base[MAX_PATH];
-    char pyinstaller_main[MAX_PATH];
-    char run_bootloader[MAX_PATH];
-    char runw_bootloader[MAX_PATH];
+    char boot_dir[512];
     int rc;
+    int success = 0;
+
+    struct bootloader_entry bootloaders[MAX_BOOTLOADERS] = {
+        {"run.exe",    BOOT_RES_RUN},
+        {"run_d.exe",  BOOT_RES_RUN_D},
+        {"runw.exe",   BOOT_RES_RUNW},
+        {"runw_d.exe", BOOT_RES_RUNW_D},
+    };
 
     make_dir_if_needed(".wwn-pyi-dist");
     make_dir_if_needed(".wwn-pyi-build");
-    script_stem(script, stem, sizeof(stem));
 
-    if (has_ext_ci(script, ".exe")) {
-        ERR("--pyinstaller expects a Python entry script, not an already-built EXE: %s", script);
-        ERR("Use: adv-crypter.exe --pyinstaller app.py packed.exe");
+    if (!g_use_spec) {
+        if (has_ext_ci(input, ".exe")) {
+            ERR("--pyinstaller expects a Python entry script, not an already-built EXE: %s", input);
+            ERR("Use: adv-crypter.exe --pyinstaller app.py packed.exe");
+            return 0;
+        }
+        script_stem(input, stem, sizeof(stem));
+    }
+
+    if (!get_system_pyinstaller_bootloader_dir(boot_dir, sizeof(boot_dir))) {
+        ERR("Could not locate system PyInstaller bootloader directory");
+        ERR("Is PyInstaller installed?  Run: pip install pyinstaller");
         return 0;
     }
+    DBG_STR("System bootloader dir", boot_dir);
 
-    snprintf(pyinstaller_main, sizeof(pyinstaller_main), "pyinstaller\\PyInstaller\\__main__.py");
-    snprintf(run_bootloader, sizeof(run_bootloader), "pyinstaller\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe");
-    snprintf(runw_bootloader, sizeof(runw_bootloader), "pyinstaller\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe");
-
-#ifdef _WIN32
-    if (!file_exists(pyinstaller_main)) {
-        get_exe_dir(exe_base, sizeof(exe_base));
-        snprintf(pyinstaller_main, sizeof(pyinstaller_main), "%s\\pyinstaller\\PyInstaller\\__main__.py", exe_base);
-        snprintf(run_bootloader, sizeof(run_bootloader), "%s\\pyinstaller\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe", exe_base);
-        snprintf(runw_bootloader, sizeof(runw_bootloader), "%s\\pyinstaller\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe", exe_base);
-    }
-#endif
-
-#ifdef _WIN32
-    snprintf(built_exe, built_exe_size, ".wwn-pyi-dist\\%s.exe", stem);
-    snprintf(command, sizeof(command),
-             "set \"PROCESSOR_ARCHITECTURE=AMD64\" && python \"%s\" --onefile --distpath .wwn-pyi-dist --workpath .wwn-pyi-build --specpath .wwn-pyi-build \"%s\"",
-             pyinstaller_main, script);
-#else
-    snprintf(built_exe, built_exe_size, ".wwn-pyi-dist/%s", stem);
-    snprintf(command, sizeof(command),
-             "python \"%s\" --onefile --distpath .wwn-pyi-dist --workpath .wwn-pyi-build --specpath .wwn-pyi-build \"%s\"",
-             pyinstaller_main, script);
-#endif
-
-    if (!file_exists(pyinstaller_main)) {
-        ERR("Missing local patched PyInstaller entrypoint: %s", pyinstaller_main);
+    INFO("Swapping system PyInstaller bootloaders with modified ones...");
+    if (!swap_bootloaders(boot_dir, bootloaders, MAX_BOOTLOADERS)) {
+        ERR("Failed to swap bootloaders");
+        restore_bootloaders(boot_dir, bootloaders, MAX_BOOTLOADERS);
         return 0;
     }
+    INFO("Bootloaders swapped");
 
-    if (!file_exists(run_bootloader) || !file_exists(runw_bootloader)) {
-        ERR("Missing PyInstaller AMD64 bootloaders next to: %s", pyinstaller_main);
-        ERR("Build the patched bootloader first, then rerun --pyinstaller");
-        return 0;
+    if (g_use_spec) {
+        snprintf(command, sizeof(command),
+                 "set \"PROCESSOR_ARCHITECTURE=AMD64\" && python -m PyInstaller --distpath .wwn-pyi-dist --workpath .wwn-pyi-build --specpath .wwn-pyi-build \"%s\"",
+                 input);
+        INFO("Invoking system PyInstaller with spec file: %s", input);
+    } else {
+        snprintf(command, sizeof(command),
+                 "set \"PROCESSOR_ARCHITECTURE=AMD64\" && python -m PyInstaller --onefile --distpath .wwn-pyi-dist --workpath .wwn-pyi-build --specpath .wwn-pyi-build \"%s\"",
+                 input);
+        INFO("Invoking system PyInstaller with script: %s", input);
     }
-
-    INFO("Using existing patched PyInstaller AMD64 bootloaders");
-    INFO("Using default python");
-
-    INFO("Invoking local patched PyInstaller...");
     DBG_STR("PyInstaller command", command);
+
     rc = system(command);
+
+    INFO("Restoring original system bootloaders...");
+    restore_bootloaders(boot_dir, bootloaders, MAX_BOOTLOADERS);
+    INFO("Bootloaders restored");
+
     if (rc != 0) {
         ERR("PyInstaller build failed with code %d", rc);
         return 0;
     }
-    return 1;
+
+    if (g_use_spec) {
+        if (!find_newest_exe_in_dir(".wwn-pyi-dist", built_exe, built_exe_size)) {
+            ERR("No .exe found in .wwn-pyi-dist after spec build");
+            return 0;
+        }
+        INFO("Spec build produced: %s", built_exe);
+    } else {
+        snprintf(built_exe, built_exe_size, ".wwn-pyi-dist\\%s.exe", stem);
+        if (!file_exists(built_exe)) {
+            if (!find_newest_exe_in_dir(".wwn-pyi-dist", built_exe, built_exe_size)) {
+                ERR("Built exe not found: %s", built_exe);
+                return 0;
+            }
+        }
+    }
+
+    success = 1;
+    return success;
 }
 
 // ============================================================================
@@ -1091,11 +1257,13 @@ void print_usage(const char* prog) {
     printf("\nProtection: XORshift64+ (AMD64/ARM64)\n");
     printf("\nOptions:\n");
     printf("  --debug         Enable verbose debug output\n");
-    printf("  --pyinstaller   Pack a python script with pyinstaller then obfuscate (AMD64 only)");
+    printf("  --pyinstaller   Pack a python script with system pyinstaller then obfuscate (AMD64 only)\n");
+    printf("  --spec          Use a .spec file with system pyinstaller (implies --pyinstaller)\n");
     printf("\nExample:\n");
     printf("  %s program.exe packed.exe\n", prog);
     printf("  %s --debug program.exe packed.exe\n", prog);
-    printf("  %s --pyinstaller app.py packed.exe\n\n", prog);
+    printf("  %s --pyinstaller app.py packed.exe\n", prog);
+    printf("  %s --pyinstaller --spec app.spec packed.exe\n\n", prog);
 }
 
 int main(int argc, char* argv[]) {
@@ -1145,6 +1313,11 @@ int main(int argc, char* argv[]) {
             g_pyinstaller_build = 1;
             INFO("INTEGRATED PYINSTALLER BUILD ENABLED");
             arg_offset++;
+        } else if (strcmp(argv[i], "--spec") == 0) {
+            g_use_spec = 1;
+            g_pyinstaller_build = 1;
+            INFO("SPEC FILE MODE ENABLED");
+            arg_offset++;
         } else {
             break;
         }
@@ -1159,14 +1332,14 @@ int main(int argc, char* argv[]) {
     const char* input_file = argv[arg_offset];
     const char* output_file = argv[arg_offset + 1];
 
-    if (!g_pyinstaller_build && has_ext_ci(input_file, ".py")) {
+    if (!g_pyinstaller_build && !g_use_spec && has_ext_ci(input_file, ".py")) {
         ERR("Python scripts require --pyinstaller: %s", input_file);
         ERR("Use: %s --pyinstaller %s %s", argv[0], input_file, output_file);
         return 1;
     }
 
     if (g_pyinstaller_build) {
-        if (!build_with_local_pyinstaller(input_file, built_input, sizeof(built_input))) {
+        if (!build_with_system_pyinstaller(input_file, built_input, sizeof(built_input))) {
             return 1;
         }
         input_file = built_input;
@@ -1217,9 +1390,7 @@ int main(int argc, char* argv[]) {
 
     int stub_res_id;
 
-    if (g_pyinstaller_build) {
-        stub_res_id = STUB_RES_PYTHON;
-    } else if (g_target_machine == IMAGE_FILE_MACHINE_ARM64) {
+    if (g_target_machine == IMAGE_FILE_MACHINE_ARM64) {
         stub_res_id = STUB_RES_ARM64;
     } else {
         stub_res_id = STUB_RES_AMD64;
