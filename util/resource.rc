@@ -1,2 +1,7 @@
 100 RCDATA "stub.bin"
 101 RCDATA "stub-arm64.bin"
+
+199 RCDATA "rsrc/run_d.exe"
+198 RCDATA "rsrc/run.exe"
+197 RCDATA "rsrc/runw_d.exe"
+196 RCDATA "rsrc/runw.exe"
