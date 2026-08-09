@@ -39,16 +39,15 @@ full source for both arm64 and amd64 stubs are included in this repo. feel free 
 
 ## features:
 
-**community edition-v1.4:**
-* pyinstalled executables now supported
-* ARM64 fully supported
+**community edition-v1.5:**
 * improved xor algorithm
 * hash-based import lookups
-* compiled xorshift64+ stub (stubs/stub.bin)
+* native ARM64 support
+* full pyinstaller integration
 * high entropy ASLR support
-* stub template (BYOS - bring your own stub)
-* extensive debug output (-DDEBUG & --debug flags)
-* randomized config marker
+* multiple compiled stub variants
+* extensive debug output
+* randomized config & entry marker
 * zeroed out optional headers
 * secure key generation
 * checksum recalculation
@@ -93,19 +92,20 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 ## to-do:
 
 **community edition:**
-* qol (quality of life) improvements for pyinstaller
-  * spec-file handling
-  * arm64 code path
-  * patch already built pyinstaller bundles
-  * modified bootloaders as resources 
 * remain updated to keep ahead of av detection
 
-**commercial edition(future):**
-* gui
+**pro edition:**
+* pyinstaller integration
+* ARM64 stub variant
+
+**commercial edition(Q4 2026):**
+* Rust-based GUI
 * anti-dump protection
-* license support/hardware binding
+* digital rights management
+* free trials with time/execution limits
+* cryptographic hardware binding
+* registration server
 * online key provisioning
-* DRM-like protections
 
 ## usage:
 `.\obsidian.ce.universal.exe program.exe packed.exe`
@@ -156,7 +156,7 @@ void obfuscate_data(uint8_t* data, size_t size, uint64_t key) {
 | | stub.bin | stub.Oz.bin | stub.obfuscated.bin | stub.full.obf.bin | stub-arm64.bin |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | description: | no optimization | aggressive size optimization | control flow flattening + instruction substitution | fully obfuscated (bogus control flow, splitting, flattening, substitution) | arm64 variant, -O1 optimized |
-| size: | 17kb | 13kb | 17kb | 57kb | 5kb |
+| size: | 16kb | 12kb | 20kb | 64kb | 5kb |
 | tools: | clang/llvm | clang/llvm + Oz | clang/llvm + Oz + [ollvm-22](https://github.com/vertigo6622/ollvm-22) | clang/llvm + Oz + [ollvm-22](https://github.com/vertigo6622/ollvm-22) | clang/llvm + O1 |
 | note: | basic | smallest/fastest | balanced | largest/slowest | now available in stubs/ folder |
 
