@@ -261,7 +261,7 @@ x86_64-w64-mingw32-clang \
 <p align="center">
   <a href="https://deepwiki.com/vertigo6622/obsidian-protector"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   <a href="/LICENSE"><img alt="License used by repo" src="https://img.shields.io/badge/license-ACSL%201.4-indigo"></a>
-  <img alt="Approximate number of clones" src="https://img.shields.io/badge/clones-1300%2B-orange">
+  <img alt="Approximate number of clones" src="https://img.shields.io/badge/clones-1500%2B-orange">
   <a href="https://docs.obsidian.st" target="_blank">
     <img alt="Static Badge" src="https://img.shields.io/badge/view%20the%20docs-blue">
   </a>
