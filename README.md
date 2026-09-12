@@ -25,7 +25,7 @@
 
 ## introduction:
 
-obsidian is a custom universal pe packer / executable protector written in C. it is designed to be paired with a loader stub that decrypts and executes the packed payload. obsidian ce (community edition) supports ARM64 natively with a specialized stub. we also recently added support for pyinstalled exectuables with a special fork of the pyinstaller bootloader. see the **packing with pyinstaller** section below.
+obsidian is a custom universal pe packer / executable protector written in C. it is designed to be paired with a loader stub that decrypts and executes the packed payload. obsidian ce (community edition) supports ARM64 natively with a specialized stub. there is full support for pyinstalled exectuables using a special fork of the pyinstaller bootloader. see the **packing with pyinstaller** section below.
 
 the stub included uses rolling xor obfuscation with shifts and does not contain any anti-debugging mechanisms. this packer/stub has been tested to work on putty.exe, strings.exe, and can even pack itself, and then pack other executables from the packed state. when the `--pyinstaller` flag is used and a `.py` file is targeted, obsidian uses pyinstaller to build an exe and then immediately obfuscates and outputs the file.
 
@@ -89,7 +89,7 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 
 ---
 
-## to-do:
+## coming soon:
 
 **community edition:**
 * remain updated to keep ahead of av detection
@@ -101,11 +101,11 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 
 **commercial edition(Q4 2026):**
 * Rust-based GUI
-* in-memory obfuscation (veil)
+* in-memory encryption (veil)
+* per-page encryption keys
 * digital rights management
 * free trials with time/execution limits
 * cryptographic hardware binding
-* registration server
 * online key provisioning
 * Pyinstaller support
 * CI/CD pipeline integration
