@@ -91,9 +91,6 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 
 ## coming soon:
 
-**community edition:**
-* remain updated to keep ahead of av detection
-
 **pro edition:**
 * pyinstaller integration
 * ARM64 stub variant
