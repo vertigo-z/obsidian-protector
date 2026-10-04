@@ -825,7 +825,7 @@ int pack_pe(uint8_t** pe_data, size_t* pe_size, uint8_t* stub, size_t stub_size)
 
     int found = 0;
     for (size_t i = 0; i < stub_size - 4; i++) {
-        if (memcmp(stub_location + i, sig, sig_len) == 0) {
+        if (memcmp(stub + i, sig, sig_len) == 0) {
             entry_offset = (uint32_t)i + 4;
             found = 1;
             memcpy((uint8_t*)stub + i, &entry_marker, 4);
