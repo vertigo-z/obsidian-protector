@@ -163,14 +163,9 @@ void obfuscate_data(uint8_t* data, size_t size, uint64_t key) {
 ## compile:
 **requirements:** 
 
-gcc:
-* mingw64 tool suite available at `https://winlibs.com/`
-* windbg or other debugger
-* python interpreter for `clean.py`
-
-llvm/clang:
 * llvm 22 toolchain
-* mingw64 tool suite
+* mingw64 tool suite available at `https://winlibs.com/`
+* if you intend to obfuscate code: [ollvm-22](https://github.com/vertigo-z/ollvm-22)
 
 **arm64 requirements:**
 * arm64 llvm/mingw64 toolchain (included in some bundles)
@@ -178,16 +173,8 @@ llvm/clang:
 ### amd64 commands:
 
 **step 1: build stub object file**
-
-gcc:
-```
-.\gcc.exe stub.c -o stub.o -fno-asynchronous-unwind-tables -fno-ident -fno-stack-protector
-```
-
-llvm/clang:
 ```
 clang --target=x86_64-pc-windows-gnu \
-    -I/llvm-mingw-20260311-ucrt-macos-universal/generic-w64-mingw32/include \
     -masm=intel \
     -fno-asynchronous-unwind-tables -fno-ident -fno-stack-protector -Oz \
     -c stub.c -o stub.o
