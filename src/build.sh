@@ -17,5 +17,5 @@ fi
 echo 'compiling resources...'
 x86_64-w64-mingw32-windres ../resource.rc -O coff -o resource.o -I. -I..
 echo 'building final crypter binary...'
-x86_64-w64-mingw32-gcc -D_WINDOWS -D_WIN64 -I. -I.. -O1 obsidian.c resource.o -o obsidian.exe
+x86_64-w64-mingw32-gcc -D_WINDOWS -D_WIN64 -I. -I.. -O1 obsidian.c resource.o -o obsidian.exe -lbcrypt
 echo "done"
