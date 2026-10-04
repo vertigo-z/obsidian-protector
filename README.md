@@ -170,7 +170,11 @@ void obfuscate_data(uint8_t* data, size_t size, uint64_t key) {
 **arm64 requirements:**
 * arm64 llvm/mingw64 toolchain (included in some bundles)
 
-### amd64 commands:
+### commands:
+
+**ez-build script available:** run **build.sh** from the src folder to build all crypter all at once (linux only)
+
+## manual amd64 commands:
 
 **step 1: build stub object file**
 ```
