@@ -438,14 +438,12 @@ void position_independent_entry(void) {
 
 __attribute__((naked)) int _start() {
     __asm__ volatile (
-        ".intel_syntax noprefix\n"
         ".byte 0xAA, 0xBB, 0xCC, 0xDD\n"
         "and rsp, 0xFFFFFFFFFFFFFFF0\n"
         "sub rsp, 0x20\n"               
         "call position_independent_entry\n"
         "add rsp, 0x20\n"
         "ret\n"
-        ".att_syntax prefix\n"
     );
 }
 
