@@ -815,12 +815,6 @@ int pack_pe(uint8_t** pe_data, size_t* pe_size, uint8_t* stub, size_t stub_size)
         }
     }
 
-    memcpy(stub_location, stub, stub_size);
-    DBG("Wrote stub code at file offset 0x%X", stub_sec->PointerToRawData);
-
-    memcpy((uint8_t*)config_location + sizeof(STUB_CONFIG), &config_marker, 4);
-    DBG_HEX("Wrote randomized stub config marker", config_marker);
-    
     DBG("=== STEP 8: Locating entry point signature ===");
     uint32_t entry_offset = 0;
     uint8_t sig[] = { 0xAA, 0xBB, 0xCC, 0xDD };
@@ -844,6 +838,12 @@ int pack_pe(uint8_t** pe_data, size_t* pe_size, uint8_t* stub, size_t stub_size)
         ERR("Failed to find entry signature in stub!");
         return 0;
     }
+
+    memcpy(stub_location, stub, stub_size);
+    DBG("Wrote stub code at file offset 0x%X", stub_sec->PointerToRawData);
+
+    memcpy((uint8_t*)config_location + sizeof(STUB_CONFIG), &config_marker, 4);
+    DBG_HEX("Wrote randomized stub config marker", config_marker);
 
     uint32_t new_ep = stub_sec->VirtualAddress + entry_offset;
     nt->OptionalHeader.AddressOfEntryPoint = new_ep;
