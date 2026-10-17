@@ -70,7 +70,7 @@ spec-files are supported however this is an experimental feature. submit an issu
 ## obsidian pro:
 <a href="https://obsidian.st/"><img alt="Static Badge" src="https://img.shields.io/badge/available%20now-indigo"></a>
 
-obsidian pro is an upgraded version of obsidian community edition with SPECK encryption, aPlib compression, and anti-debugging syscalls. it is licensed using open-source obsidian [keykeeper](https://github.com/vertigo6622/obsidian-keykeeper) which sits behind a clearnet-to-tor proxy, enabling anonymous license management.
+obsidian pro is an upgraded version of obsidian community edition with SPECK encryption, aPlib compression, and anti-debugging syscalls. it is licensed using open-source obsidian [keykeeper](https://github.com/vertigo6622/obsidian-keykeeper) which sits behind a clearnet-to-tor proxy, enabling anonymous license management. pro edition was recently updated to version 1.1 which includes pyinstaller support among other improvements.
 
 **where to find:**
 <p> 
@@ -81,6 +81,7 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 
 * SPECK 128/128 CTR encryption
 * aPlib compression (--compress)
+* full pyinstaller support
 * resource encryption
 * extensive syscall anti-debug (--ultra)
 * anti-sandbox
@@ -163,9 +164,9 @@ void obfuscate_data(uint8_t* data, size_t size, uint64_t key) {
 ## compile:
 **requirements:** 
 
-* llvm 22 toolchain
+* llvm 23 toolchain
 * mingw64 tool suite available at `https://winlibs.com/`
-* if you intend to obfuscate code: [ollvm-22](https://github.com/vertigo-z/ollvm-22)
+* if you intend to obfuscate code: [ollvm-23](https://github.com/vertigo-z/ollvm)
 
 **arm64 requirements:**
 * arm64 llvm/mingw64 toolchain (included in some bundles)
