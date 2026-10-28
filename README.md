@@ -92,11 +92,6 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 
 ## coming soon:
 
-**pro edition:**
-* pyinstaller integration
-* ARM64 stub variant
-* veil edition (coming soon)
-
 **commercial edition(Q4 2026):**
 * Rust-based GUI
 * in-memory encryption (veil)
@@ -106,7 +101,6 @@ obsidian pro is an upgraded version of obsidian community edition with SPECK enc
 * cryptographic hardware binding
 * online key provisioning
 * Pyinstaller support
-* CI/CD pipeline integration
 
 ## usage:
 `.\obsidian.ce.universal.exe program.exe packed.exe`
